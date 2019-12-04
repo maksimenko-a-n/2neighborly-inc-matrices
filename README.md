@@ -7,7 +7,7 @@ Examples of tested commands:
 incmat.exe 4d2n.txt 8 12 8
 incmat.exe 5d2n.txt 10 14 9
 incmat.exe 5d2n.txt 10 15 9 3
-incmat.exe 6d2n.txt 14 16 11
+incmat.exe 6d2n.txt 14 16 11 7
 
 For compilation use the "CMakeLists.txt". For Windows the makefile can be done with CMake. For Linux: cmake CMakeLists.txt
 After that you can "make" the executable file in Linux or, for example, "mingw32-make" (if the compiler is MinGW) for Windows.
