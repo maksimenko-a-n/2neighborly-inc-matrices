@@ -80,9 +80,9 @@ void CombType::genMatrices(TRow *in_matrix, int rows, int cols, int curcol){
 	}
 }
 
-Explorer::Explorer(int nVert, int nFact, int minfv, int src_index, bool is_log) : nVertices(nVert), nFacets(nFact), min_facets_in_vert(minfv){	
+Explorer::Explorer(int dim, int nVert, int nFact, int minfv, int src_index, bool is_log) : nVertices(nVert), nFacets(nFact), min_facets_in_vert(minfv){	
 	// Open log-file
-    std::string log_file_name = std::to_string(dimension) + "d" + 
+    std::string log_file_name = std::to_string(dim) + "d" + 
 			std::to_string(nVertices) + "v" + std::to_string(nFacets) + "f-from(" +
 			std::to_string(src_index) + ").log";
 	if (is_log)

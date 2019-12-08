@@ -83,7 +83,7 @@ public:
 	uint8_t signature[siglen]; // The signature of the matrix. Evaluated by evalSignature()
 	uint8_t colSignature[siglen]; // The signature of the matrix columns. Is not used at the current time
 
-    Explorer(int nVert, int nFact, int minfv, int src_index, bool is_log = true);
+    Explorer(int dim, int nVert, int nFact, int minfv, int src_index, bool is_log = true);
 	~Explorer(){if (log_file != stdout)	fclose(log_file);}; 
 	// Read facets from file
 	int read_facets(const char* fname);

@@ -51,18 +51,21 @@ int main(int argc, char *argv[])
     {
 		if (strcmp(argv[5], "-l") == 0)
 			save_log = true;
-		try{
-			src_index = std::stoi(argv[5]);
-        }
-		catch(...){
-			std::cout << "The fifth argument must be an index of the facet-source" << std::endl;
-			return 1;
+		else{
+			try{
+				src_index = std::stoi(argv[5]);
+			}
+			catch(...){
+				std::cout << "The fifth argument must be an index of the facet-source" << std::endl;
+				return 1;
+			}
+			if (argc > 6 && strcmp(argv[6], "-l") == 0)
+				save_log = true;
 		}
-		if (argc > 6 && strcmp(argv[6], "-l") == 0)
-			save_log = true;
     }
+    unsigned int input_dim = std::stoi(argv[1]);
 	// Create an object for evaluation
-	Explorer exp(vertices, facets, min_facets_in_vert, src_index, save_log);
+	Explorer exp(input_dim + 1, vertices, facets, min_facets_in_vert, src_index, save_log);
 	// Read 2-neighborly polytopes from the given file
 	// They will be used as facets of desirable polytopes
 	if (exp.read_facets(argv[1]))
