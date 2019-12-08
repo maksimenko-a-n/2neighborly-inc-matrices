@@ -39,7 +39,8 @@ int evalColSignature(uint8_t dimension, uint8_t rows, uint8_t cols, TRow *matrix
 	return 0;
 }
 
-CombType::CombType(Polytope &polytope){
+CombType::CombType(Polytope &polytope, FILE *logfile){
+	log_file = logfile;
 	dimension = polytope.getDimension();
 	auto rows = polytope.getCountFacets();
 	auto cols = polytope.getCountVertex();
@@ -63,7 +64,8 @@ void CombType::genMatrices(TRow *in_matrix, int rows, int cols, int curcol){
 		incM.sort();
 		matrices.insert(incM);
 		if (matrices.size() % 1000000 == 0){
-			printf (" %ld", matrices.size());
+			fprintf (log_file, " %ld", matrices.size());
+			fflush (log_file);
 		}
 		return;
 	}
@@ -77,6 +79,17 @@ void CombType::genMatrices(TRow *in_matrix, int rows, int cols, int curcol){
 		genMatrices(matrix, rows, cols, curcol+1);
 	}
 }
+
+Explorer::Explorer(int nVert, int nFact, int minfv, int src_index, bool is_log) : nVertices(nVert), nFacets(nFact), min_facets_in_vert(minfv){	
+	// Open log-file
+    std::string log_file_name = std::to_string(dimension) + "d" + 
+			std::to_string(nVertices) + "v" + std::to_string(nFacets) + "f-from(" +
+			std::to_string(src_index) + ").log";
+	if (is_log)
+		log_file = fopen(log_file_name.c_str(), "w");
+	else
+		log_file = stdout;
+};
 
 
 // Test if x is a proper subset of a row of the matrix
@@ -125,21 +138,22 @@ bool Explorer::test2n(TRow x, TRow *matrix, int rows, std::vector<TRow> *edges){
 int Explorer::read_facets(const char* fname){
 	// Read 2-neighborly polytopes with the given parameters
 	// They will be used as facets of desirable polytopes
+    fprintf(log_file, "Read from %s", fname);
     Polytope::readFromFile(fname, facets_list, nFacets-1, nVertices-1, false);
-    std::cout << "Read from " << fname << " " << facets_list.size() << " polytopes\n";
+    fprintf(log_file, " %ld polytopes\n", facets_list.size());
 	if (facets_list.size() == 0){
-		std::cout << "There are no polytopes!\n";
+		fprintf(log_file, "There are no polytopes!\n");
 		return 1;
 	}
 	dimension = facets_list[0].getDimension();
-	printf ("Source dimension: %d\n", dimension);
+	fprintf (log_file, "Source dimension: %d\n", dimension);
 	// Preprocessing of combinatorial types
-    std::cout << "Generating permutations for facets:" << std::endl;
+    fprintf(log_file, "Generating permutations for facets:");
 	for (auto &facet : facets_list){
-		types_list.push_back(CombType(facet));
-		std::cout << " " << types_list.back().matrices.size() << ";";
+		types_list.push_back(CombType(facet,log_file));
+		fprintf(log_file, " %ld;", types_list.back().matrices.size());
 	}
-	std::cout << " " << types_list.size() << " facets." << std::endl;
+	fprintf(log_file, " %ld facets.\n", types_list.size());
 	dimension++;
 	return 0;
 }
@@ -157,7 +171,7 @@ void Explorer::find_new_facets(TRow *matrix){
 		if(is_proper_subset(newfacet, matrix, nFacetsSrc))
 			newfacets.push_back(newfacet);
 	}
-	std::cout << "Feasible rows: " << newfacets.size() << "\n";
+	//std::cout << "Feasible rows: " << newfacets.size() << "\n";
 }
 
 
@@ -255,14 +269,18 @@ TRow Explorer::good_facets(TRow mask, int current){
 
 // Add a column (vertex) to the matrix
 void Explorer::add_vertex(int current, int index, TRow mask){
+	int iterations_index = nFacets - 1 - nFacetsSrc + current - nVerticesSrc;
+	print_status(iterations_index);
 	if (current < nVertices - 1){
 		//if (nFacets <= nFacetsSrc+1 && current < nVertices-1)
+		/*
 		if (current < nVertices-3){
 			std::cout << " " << cnt;
 			std::cout.flush();
-		}
+		}*/
 		int Nv = newvertices.size();
 		for ( ; index < Nv; index++){
+			iterations[iterations_index] = index;
 			auto vertex = newvertices[index];
 			// A vertex (column) cann't have 1 for the row that is already a facet
 			if (vertex & mask)
@@ -315,7 +333,7 @@ void Explorer::add_vertex(int current, int index, TRow mask){
 			// Add the polytope to the array of polytopes
 			polytopes.push_back(poly);
 			//polytopes.push_back(std::make_shared<Polytope>(newpolytope));
-			printf ("  good! ");
+			fprintf (log_file, "  good! ");
 		}
 		// Restore the array of current facets in the previous state
 		removeColFromFacets(current);
@@ -326,8 +344,8 @@ void Explorer::add_vertex(int current, int index, TRow mask){
 void Explorer::add_vertices(){
 	// Generate feasible columns (vertices)
 	find_new_vertices(tmatrix.data());
-	if (nFacets <= nFacetsSrc+1)
-		std::cout << "Feasible cols: " << newvertices.size() << std::endl;
+	//if (nFacets <= nFacetsSrc+1)
+	//	std::cout << "Feasible cols: " << newvertices.size() << std::endl;
 	// Add the space for vertices
 	for (int i = 0; i < addcols; i++)
 		tmatrix.push_back(0);
@@ -351,17 +369,26 @@ void Explorer::add_vertices(){
 }
 
 // Add new rows (facets) to the matrix
-void Explorer::add_facets(int currentV, int indexFrom){
-	if (currentV < nFacets - 1){
+void Explorer::add_facets(int currentF, int indexFrom){
+	if (currentF < nFacets - 1){
 		int Nf = newfacets.size();
+		//bool isPrintStatus = (0 < nFacets - currentF + addcols - 4);
+		//bool isPrintStatus = (0 < nFacets - currentF + addcols - 6);
+		//bool isPrintStatus = (0 < nFacets - currentF + addcols - 8);
 		for ( ; indexFrom < Nf; indexFrom++){
-			if(currentV == nFacetsSrc)
-				std::cout << " (" << indexFrom << " / " << Nf << ")";
-			std::cout.flush();
+			iterations[currentF - nFacetsSrc] = indexFrom;
+			/*
+			if (isPrintStatus){
+				if(currentF == nFacetsSrc)
+					std::cout << " (" << indexFrom << " / " << Nf << ")";
+				else
+					std::cout << " " << cnt;
+				std::cout.flush();
+			}*/
 			// Init the facet
-			poly.setRow(currentV, newfacets[indexFrom]);
-			//add_facets(currentV+1, indexFrom+1);
-			add_facets(currentV+1, indexFrom); // ATTENTION!!! indexFrom+1
+			poly.setRow(currentF, newfacets[indexFrom]);
+			//add_facets(currentF+1, indexFrom+1);
+			add_facets(currentF+1, indexFrom); // ATTENTION!!! indexFrom+1
 		}
 	}
 	else{
@@ -387,6 +414,14 @@ void Explorer::writeToFile(const std::string &fname){
 
 // The main process of enumerating matrices with the given submatrix (a facet from the given list)
 int Explorer::evaluate(int src_facet_index){
+	// Parameters for status printing
+	print_time = CLOCKS_PER_SEC * 5;
+	max_print_time = CLOCKS_PER_SEC * 1200;
+	// Time is running
+	start = clock();
+	next_time = start + print_time;
+	
+	// Init the polytope
 	poly = facets_list[src_facet_index];
 	poly.setDimension(dimension);
 	/*
@@ -402,13 +437,17 @@ int Explorer::evaluate(int src_facet_index){
 	nFacetsSrc = poly.getCountFacets();
 	nVerticesSrc = poly.getCountVertex();
     addcols = nVertices - nVerticesSrc;
-	printf ("V=%d, F=%d, minFinV=%d, Index=%d: vsrc=%d, fsrc=%d\n", nVertices, nFacets, min_facets_in_vert, src_facet_index, nVerticesSrc, nFacetsSrc);
-	std::cout.flush();
 
 	// Open files for output
     std::string file_name_result = std::to_string(dimension) + "d" + 
 			std::to_string(nVertices) + "v" + std::to_string(nFacets) + "f-from-" +
-			std::to_string(nVerticesSrc) + "v" + std::to_string(nFacetsSrc) + "f-" + std::to_string(min_facets_in_vert) + "mfv-v4";
+			std::to_string(nVerticesSrc) + "v" + std::to_string(nFacetsSrc) + "f-" + std::to_string(min_facets_in_vert) + "mfv";
+    //std::string log_file_name = file_name_result + ".log";
+    //log_file = fopen(log_file_name.c_str(), "w");
+	//log_file = stdout;
+	fprintf (log_file, "V=%d, F=%d, minFinV=%d, Index=%d: vsrc=%d, fsrc=%d\n", nVertices, nFacets, min_facets_in_vert, src_facet_index, nVerticesSrc, nFacetsSrc);
+	fflush(log_file);
+
     std::string file_name_tmp = file_name_result + ".tmp";
     file_result = std::ofstream(file_name_tmp);
 
@@ -433,19 +472,57 @@ int Explorer::evaluate(int src_facet_index){
 	//matrix2 = *pmatrix;
 
 	// Run main process
-    std::cout << "Check polytopes:";
+    fprintf(log_file, "Check polytopes:");
 	cnt = 0;
 	add_facets(nFacetsSrc, 0);
-	std::cout << "\n";
-	printf ("Total checked: %ld\n", cnt);
+	fprintf(log_file, "\n");
+	fprintf (log_file, "Total checked: %ld\n", cnt);
 	
 	// Close the temporary file
-    file_result.close(); 
-	std::cout << "Found: " << polytopes.size() << std::endl;
+    file_result.close();
+	fprintf(log_file, "Found: %ld\n", polytopes.size());
 	// Sort and write results
 	writeToFile(file_name_result);
-	std::cout << "Good: " << polytopes.size() << std::endl;
+	fprintf(log_file, "Good: %ld\n", polytopes.size());
 	//remove (file_name_tmp.c_str());
+	// Print the elapsed time
+	clock_t time = clock() - start;
+	float sec = (float)time / CLOCKS_PER_SEC;
+    fprintf (log_file, "Time: %4.3f sec\n", sec);
 	return 0;
 }
 
+inline void Explorer::print_status(int iter_index){
+	clock_t t = clock();
+    if (t >= next_time){
+		//print_cur_stat();
+		fprintf (log_file, " [");
+		if (nFacets - nFacetsSrc > 1)
+			fprintf (log_file, "%d/%ld", iterations[0], newfacets.size());
+		int i = 1;
+		for ( ; i < nFacets - nFacetsSrc - 1; i++)
+			fprintf (log_file, " %d", iterations[i]);
+		if (i < iter_index)
+			fprintf (log_file, "; %d/%ld", iterations[i], newvertices.size());
+		i++;
+		for ( ; i < iter_index; i++)
+			fprintf (log_file, " %d", iterations[i]);
+		fprintf (log_file, "]");
+		double elapsed_time = (double)(t - start) / CLOCKS_PER_SEC;
+		//double left_time = elapsed_time * (inputlen - sent) / sent;
+		//long sec = round(left_time);
+		long sec = round(elapsed_time);
+		int min = sec / 60;
+		int hour = min / 60;
+		fprintf (log_file, " (%d:%02d:%02ld)", hour, min%60, sec%60);
+        fflush (log_file);
+        //fflush (logf);
+        //fflush (outf);
+		if (print_time < max_print_time){
+			print_time *= 2;
+			if (print_time > max_print_time)
+				print_time = max_print_time;
+		}	
+		next_time = t + print_time;
+    }    
+}

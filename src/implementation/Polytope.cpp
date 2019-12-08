@@ -24,6 +24,7 @@ int Polytope::readFromFile(const std::string& file_name, std::vector<Polytope> &
         Polytope polyhedron;
         if( polyhedron.readFromStream(file_in) == 0) {
             if (polyhedron.getCountFacets() <= max_facets && polyhedron.getCountVertex() <= vertices) {
+				//printf (" (%d,%d)", polyhedron.getCountVertex(), polyhedron.getCountFacets());
                 if (!vertices_fix || polyhedron.getCountVertex() == vertices)
                     result.push_back(polyhedron);
             }
@@ -61,7 +62,7 @@ int Polytope::readFromStream(std::istream &i_stream) {
         do{
 			std::getline(i_stream, buff);
 			//std::cout << buff << std::endl;
-        }while(buff.empty());
+        }while(buff.empty() && !i_stream.eof());
         try {
 			dimension = std::stoul(buff, nullptr, 10);
         }
@@ -71,6 +72,7 @@ int Polytope::readFromStream(std::istream &i_stream) {
             return 2;
         }
 		readMatrix(i_stream);
+		//printf ("Read matrix: %d, %d, %d\n", dimension, getCountColumn(), getCountRow());
 		if (dimension == 0 || getCountRow() == 0)
 			return 3;
         return 0;

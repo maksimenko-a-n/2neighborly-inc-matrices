@@ -9,6 +9,7 @@
 #include <IncidenceMatrix.h>
 #include <Polytope.h>
 #include <set>
+#include <time.h>
 
 #define siglen 8
 
@@ -34,13 +35,14 @@ struct CmpMatrices {
 
 // Special class for speeding up the test of combinatorial equivalence of facets
 class CombType {
+	FILE *log_file;
 	public:
 	int dimension; // the dimension of the facet
 	uint8_t signature[siglen]; // The signature of the matrix. Evaluated by evalSignature()
 	uint8_t colSignature[siglen]; // The signature of the matrix columns. Is not used at the current time
 	std::set<IncidenceMatrix, CmpMatrices> matrices; // The set of matrices for all permutations of columns
 	// When creating the object the procedure genMatrices() generates a large set of matrices
-	CombType(Polytope &polytope);
+	CombType(Polytope &polytope, FILE *logfile);
     inline bool isEqualSignature(uint8_t *sig){return (memcmp(signature, sig, siglen) == 0);};	
     inline bool isEqualColSignature(uint8_t *sig){return (memcmp(colSignature, sig, siglen) == 0);};	
 	// Recursively generate all permutations of columns, 
@@ -61,6 +63,9 @@ class Explorer {
 	int nFacets;       // the num of facets of the new polytope
 	int min_facets_in_vert; // the minimal num of 1's in every column
     int addcols; // addcols = nVertices - nVerticesSrc;
+	clock_t start, next_time, print_time, max_print_time; // Time intervals for printing status
+	int iterations[32];
+	inline void print_status(int iter_index);
 	Polytope poly; // The new polytope
 	std::vector<TRow> newfacets; // The set of feasible rows
 	std::vector<TRow> newvertices; // The set of feasible columns
@@ -68,6 +73,7 @@ class Explorer {
 	std::vector<TRow> edges;   // The current edges. Every edge is an intersection of two columns (vertices)
 	std::vector<Polytope> polytopes; // The set of all new polytopes
 	std::ofstream file_result; // Where to write results
+	FILE *log_file;
 	unsigned long cnt; // For counting the number of final testings
 public:
 	std::vector<Polytope> facets_list; // The given list of facets (polytopes in dimension - 1)
@@ -77,7 +83,8 @@ public:
 	uint8_t signature[siglen]; // The signature of the matrix. Evaluated by evalSignature()
 	uint8_t colSignature[siglen]; // The signature of the matrix columns. Is not used at the current time
 
-    Explorer(int nVert, int nFact, int minfv) : nVertices(nVert), nFacets(nFact), min_facets_in_vert(minfv){};
+    Explorer(int nVert, int nFact, int minfv, int src_index, bool is_log = true);
+	~Explorer(){if (log_file != stdout)	fclose(log_file);}; 
 	// Read facets from file
 	int read_facets(const char* fname);
 	// The main process of enumerating matrices with the given submatrix (a facet from the given list)

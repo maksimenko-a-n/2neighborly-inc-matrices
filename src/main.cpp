@@ -3,22 +3,18 @@
 #include <Polytope.h>
 #include <Explorer.h>
 
-#include <chrono>
-using namespace std::chrono;
 
-
-// The program has 5 parameters (the last parameter is optional):
+// The program has 6 parameters (the two last parameters are optional):
 //  1) the input file with incidence matrices of facets (2-neighborly polytopes);
 //  2) the number of vertices V of desirable polytope;
 //  3) the number of facets F of desirable polytope;
 //  4) the minimal number of facets in a vertex;
-//  5) the index of the source facet (by default the last facet of the input list will be choosen).
+//  5) the index of the source facet (by default the last facet of the input list will be choosen);
+//  6) "-l" if you want to save the log-info into a log-file (by default it is printed on the screen).
 // From the input file, only facets with vertices < V and facets < F will be choosen
 // The output is a file with desirable polytopes
 int main(int argc, char *argv[])
 {
-    setlocale(LC_ALL, "rus");
-
 	// Read parameters
     if(argc < 5)
     {
@@ -29,6 +25,7 @@ int main(int argc, char *argv[])
     unsigned int facets = 0;
     unsigned int min_facets_in_vert = 0;
     int src_index = -1; // Index of the source facet for the construction
+    bool save_log = false;
     try{
         vertices = std::stoul(argv[2]);
         facets = std::stoul(argv[3]);
@@ -52,6 +49,8 @@ int main(int argc, char *argv[])
 	}
     if(argc > 5)
     {
+		if (strcmp(argv[5], "-l") == 0)
+			save_log = true;
 		try{
 			src_index = std::stoi(argv[5]);
         }
@@ -59,9 +58,11 @@ int main(int argc, char *argv[])
 			std::cout << "The fifth argument must be an index of the facet-source" << std::endl;
 			return 1;
 		}
+		if (argc > 6 && strcmp(argv[6], "-l") == 0)
+			save_log = true;
     }
 	// Create an object for evaluation
-	Explorer exp(vertices, facets, min_facets_in_vert);
+	Explorer exp(vertices, facets, min_facets_in_vert, src_index, save_log);
 	// Read 2-neighborly polytopes from the given file
 	// They will be used as facets of desirable polytopes
 	if (exp.read_facets(argv[1]))
@@ -81,14 +82,7 @@ int main(int argc, char *argv[])
 	}
 		
 	// The main evaluation
-	steady_clock::time_point timeBegin = steady_clock::now();
 	exp.evaluate(src_index); 
-    steady_clock::time_point timeEnd = steady_clock::now();
-
-
-    duration<double> time_span = duration_cast<duration<double>>(timeEnd - timeBegin);
-    std::cout << "Time: " << time_span.count() << " seconds\n";
-//	printf ("cnt1 = %lld, cnt2 = %lld, cnt3 = %lld, cnt4 = %lld, cnt5 = %lld", cnt1, cnt2, cnt3, cnt4, cnt5);
 
     return 0;
 }
