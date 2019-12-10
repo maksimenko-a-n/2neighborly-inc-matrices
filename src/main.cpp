@@ -1,3 +1,7 @@
+//
+// Alexander Maksimenko, 29.11.19
+//
+
 #include <CombType.h>
 #include <IncidenceMatrix.h>
 #include <Polytope.h>
